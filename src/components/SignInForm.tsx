@@ -1,6 +1,7 @@
+import { z } from "zod";
 import { useState } from "react";
 import { setToken } from "../scripts/token";
-import { z } from "zod";
+import { useNavigate } from "react-router-dom";
 
 const signUpSchema = z.object({
     email: z.string().email("Invalid email address"),
@@ -8,6 +9,7 @@ const signUpSchema = z.object({
 });
 
 function SignInForm() {
+    const navigate = useNavigate();
     const [email, setEmail] = useState("");
     const [password, setPassword] = useState("");
     const [errors, setErrors] = useState<{
@@ -57,6 +59,7 @@ function SignInForm() {
             }
             setToken(data.token);
             alert("Signin Successful!");
+            navigate("/profile");
         } catch (error) {
             alert("An error occurred during signin.");
             console.error(error);

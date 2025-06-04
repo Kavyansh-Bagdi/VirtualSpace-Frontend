@@ -3,6 +3,7 @@ import { Suspense } from "react";
 import { Routes, Route } from "react-router-dom";
 import AuthPage from './pages/AuthPage'
 import HomePage from './pages/HomePage';
+import Profile from './pages/Profile';
 
 function App() {
   return (
@@ -10,6 +11,7 @@ function App() {
       <Routes>
         <Route path="/" element={<HomePage />} />
         <Route path="/auth" element={<AuthPage />} />
+        <Route path="/profile" element={<Profile />}></Route>
       </Routes>
     </Suspense>
   )
