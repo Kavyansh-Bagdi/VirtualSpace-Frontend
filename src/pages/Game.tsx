@@ -1,17 +1,18 @@
+import React, { useEffect, useRef } from "react";
 import Phaser from "phaser";
-import { getToken } from "../scripts/token";
+import { io } from "socket.io-client";
+import { getToken, readToken } from "../scripts/token";
 import { useNavigate } from "react-router-dom";
-import { useEffect, useRef } from "react";
 
 function Game() {
     const navigate = useNavigate();
     const gameRef = useRef<Phaser.Game | null>(null);
+    const phaserRef = useRef<HTMLDivElement>(null);
+    const socketRef = useRef<ReturnType<typeof io> | null>(null);
 
     useEffect(() => {
-        // Check authentication
         if (!getToken()) {
             alert("User is not Logined");
-            // Destroy Phaser game if it exists
             if (gameRef.current) {
                 gameRef.current.destroy(true);
                 gameRef.current = null;
@@ -20,54 +21,88 @@ function Game() {
             return;
         }
 
-        class Example extends Phaser.Scene {
+        socketRef.current = io("http://localhost:3000/space"); // Connect to /space namespace
+        socketRef.current.emit("join", readToken()?.name);
+        let playerSprites: { [key: string]: Phaser.GameObjects.Sprite } = {};
+        let cursors: Phaser.Types.Input.Keyboard.CursorKeys;
+
+        class GameScene extends Phaser.Scene {
+            constructor() {
+                super("GameScene");
+            }
             preload() {
-                this.load.setBaseURL('https://cdn.phaserfiles.com/v385');
-                this.load.image('sky', 'assets/skies/space3.png');
-                this.load.image('logo', 'assets/sprites/phaser3-logo.png');
-                this.load.image('red', 'assets/particles/red.png');
+                this.load.image("tiles", "map/Dungeon forest.png");
+                this.load.tilemapTiledJSON("map", "map/devMap.json");
+                this.load.spritesheet("player", "player1.png", { frameWidth: 32, frameHeight: 48 });
             }
             create() {
-                this.add.image(400, 300, 'sky');
-                const particles = this.add.particles(0, 0, 'red', {
-                    speed: 100,
-                    scale: { start: 1, end: 0 },
-                    blendMode: 'ADD'
-                });
-                const logo = this.physics.add.image(400, 100, 'logo');
-                logo.setVelocity(100, 200);
-                logo.setBounce(1, 1);
-                logo.setCollideWorldBounds(true);
-                particles.startFollow(logo);
+                // Load map and tileset
+                const map = this.make.tilemap({ key: "map" });
+                const tileset = map.addTilesetImage("Dungeon forest", "tiles");
+                const layer = map.createLayer("Tile Layer 1", tileset, 0, 0);
+                layer.setDepth(-1); // Set the depth to -1
+                this.add.sprite(100, 100, "player");
+
+                // Setup keyboard
+                cursors = this.input.keyboard.createCursorKeys();
+            }
+            update() {
+                if (Phaser.Input.Keyboard.JustDown(cursors.left)) {
+                    socketRef.current.emit("left_movement");
+                }
+                if (Phaser.Input.Keyboard.JustDown(cursors.right)) {
+                    socketRef.current.emit("right_movement");
+                }
+                if (Phaser.Input.Keyboard.JustDown(cursors.up)) {
+                    socketRef.current.emit("up_movement");
+                }
+                if (Phaser.Input.Keyboard.JustDown(cursors.down)) {
+                    socketRef.current.emit("down_movement");
+                }
             }
         }
 
         const config = {
             type: Phaser.AUTO,
-            width: window.innerWidth,
-            height: window.innerHeight,
-            scene: Example,
-            physics: {
-                default: 'arcade',
-                arcade: {
-                    gravity: { y: 200 }
-                }
-            }
+            width: 320,
+            height: 320,
+            parent: phaserRef.current,
+            scene: GameScene,
         };
 
-        // Create Phaser game
-        gameRef.current = new Phaser.Game(config);
+        const game = new Phaser.Game(config);
+        gameRef.current = game;
 
-        // Cleanup on unmount
+        // Handle player updates from the server
+        socketRef.current.on("update", (players: any[]) => {
+            const scene = game.scene.getScene("GameScene") as Phaser.Scene;
+            if (!scene) return;
+            console.log(players);
+            players.forEach((p) => {
+                if (!playerSprites[p.socketId]) {
+                    playerSprites[p.socketId] = scene.add.sprite(p.coordinate.x, p.coordinate.y, "player");
+                } else {
+                    playerSprites[p.socketId].x = p.coordinate.x;
+                    playerSprites[p.socketId].y = p.coordinate.y;
+                }
+            });
+
+            // Clean up disconnected players
+            Object.keys(playerSprites).forEach((id) => {
+                if (!players.find((p) => p.socketId === id)) {
+                    playerSprites[id].destroy();
+                    delete playerSprites[id];
+                }
+            });
+        });
+
         return () => {
-            if (gameRef.current) {
-                gameRef.current.destroy(true);
-                gameRef.current = null;
-            }
+            socketRef.current.disconnect();
+            game.destroy(true);
         };
     }, [navigate]);
 
-    return <></>;
+    return <div ref={phaserRef} />;
 }
 
 export default Game;
