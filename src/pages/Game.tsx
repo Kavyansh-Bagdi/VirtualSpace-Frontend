@@ -41,22 +41,22 @@ function Game() {
                 const tileset = map.addTilesetImage("Dungeon forest", "tiles");
                 const layer = map.createLayer("Tile Layer 1", tileset, 0, 0);
                 layer.setDepth(-1); // Set the depth to -1
-                this.add.sprite(100, 100, "player");
+                // Set world bounds
 
                 // Setup keyboard
                 cursors = this.input.keyboard.createCursorKeys();
             }
             update() {
-                if (Phaser.Input.Keyboard.JustDown(cursors.left)) {
+                if (cursors.left.isDown) {
                     socketRef.current.emit("left_movement");
                 }
-                if (Phaser.Input.Keyboard.JustDown(cursors.right)) {
+                if (cursors.right.isDown) {
                     socketRef.current.emit("right_movement");
                 }
-                if (Phaser.Input.Keyboard.JustDown(cursors.up)) {
+                if (cursors.up.isDown) {
                     socketRef.current.emit("up_movement");
                 }
-                if (Phaser.Input.Keyboard.JustDown(cursors.down)) {
+                if (cursors.down.isDown) {
                     socketRef.current.emit("down_movement");
                 }
             }
